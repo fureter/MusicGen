@@ -23,6 +23,10 @@ import musicgen.PatternGeneration.Markov;
  */
 public class ProceduralMusic {
     
+    /*
+     * Legacy method for generating music, uses interposed sine and cosine functions with frequency shifts, sounds terrible.
+     */
+    
     public static void createSimpleMusic(Track t,String key){
         for(long i = 0; i < MusicGen.length; i+=MusicGen.dt*4){
             for(long j = i; j < i+(MusicGen.dt*4); j+=MusicGen.dt){
@@ -62,11 +66,21 @@ public class ProceduralMusic {
         }
     }
     
+    /*
+    *   Clamped the value between min and max in reference to range 1 and range 2. Was used for createSimpleMusic.
+    */
+    
     public static int clampValue(int min, int max, double range1, double range2, double value){
         double per = value/(range2-range1);
         int iter = (int)((max-min)*per);
         return min+iter;
     }
+    
+    /*
+    * The primary Algorithm for Generating music. Uses a Markov Chain to generate note orders for specific measures, then orders the measures into sections. These sections are ordered 
+    * with another Markov Chain to form the full score of the piece.
+    * @todo have tracks input with and array/arraylist, along wiht their channel number. Make the other input parameters be statics in MusicGen.
+    */
     
     public static void markovSectionated(Track t,Track t2, String key, String key2, String scale,int numPatterns,int patternLenMax,int timeSig,int sections, Random ran){
         Markov m = new Markov(Scale.getKeyScaleFromRoot(scale,key));
@@ -154,89 +168,10 @@ public class ProceduralMusic {
         
     }
     
-    public static void markovSectionatedWithVel(Track t, String key, String key2, String scale,int numPatterns,int patternLenMax,int timeSig,int sections, Random ran){
-        Markov m = new Markov(Scale.getKeyScaleFromRoot(scale,key));
-        MusicGen.seed = System.currentTimeMillis();
-        Markov n = new Markov(Scale.getKeyScaleFromRoot(scale,key2));
-        MusicGen.seed = System.currentTimeMillis();
-        //Markov vel = generateVelocityGraph(MusicGen.velLow,MusicGen.velHigh,MusicGen.velStep);
-        //Markov velL = generateVelocityGraph(MusicGen.velLow,MusicGen.velHigh,MusicGen.velStep);
-        
-        Score s = new Score();
-        Score c = new Score();
-        
-        //Score velS = new Score();
-        //Score velSL = new Score();
-        
-        int sec = ran.nextInt(numPatterns)+2;
-        
-        System.out.println("Number of Sections: " + sec);
-        
-        for(int i = 0; i < sec; i++){
-            int lenPattern = ran.nextInt(patternLenMax)+1;
-            System.out.println("Number of Segments: " + lenPattern);
-            ArrayList measures = new ArrayList<>();
-            ArrayList measures2 = new ArrayList<>();
-            //ArrayList velList = new ArrayList<>();
-            //ArrayList velListL = new ArrayList<>();
-            for(int j = 0; j < lenPattern;j++){
-                System.out.println("Section: " + j +" out of: " + lenPattern);
-                measures.add(new Measure(0,m.makeMusic(timeSig)));
-                measures2.add(new Measure(0,n.makeMusic(timeSig)));
-                //velList.add(new Measure(0,vel.makeMusic(timeSig)));
-                //velListL.add(new Measure(0,velL.makeMusic(timeSig)));
-            }
-            s.addSection(measures);
-            c.addSection(measures2);
-            //velS.addSection(velList);
-            //velSL.addSection(velListL);
-        }
-        
-        System.out.println("Finished Creating Sections");
-        int[] numSec = new int[sec];
-        for(int i = 0; i < sec;i++){
-            System.out.println(i);
-            numSec[i] = i;
-        }
-        Markov se = new Markov(numSec);
-        
-        int[] secOrder = checkRepeat(se,sections,0,10);
-        
-        removeDissonence(s,c,scale);
-        
-        System.out.println("Beggining Track Writing");
-        
-        long time = 0;
-        for(int i = 0; i < secOrder.length;i++){
-            ArrayList mes = s.getSection(secOrder[i]);
-            //ArrayList velA = velS.getSection(secOrder[i]);
-            for (int j = 0; j < mes.size();j++) {
-                Measure current = (Measure) mes.get(j);
-                //Measure currentVel = (Measure) velA.get(j);
-                for (int k = 0; k < current.notes.size();k++) {
-                    t.add(EventCreator.createMidiEvent(MessageCreator.createShortMessage(current.notes.get(k).note, MusicGen.NOTE_ON, 30), time));
-                    t.add(EventCreator.createMidiEvent(MessageCreator.createShortMessage(current.notes.get(k).note, MusicGen.NOTE_OFF, 30), time+current.notes.get(k).duration-1));
-                    time+=current.notes.get(k).duration;
-                }
-            }
-        }
-        
-        time = 0;
-        for(int i = 0; i < secOrder.length;i++){
-            ArrayList mes = c.getSection(secOrder[i]);
-            //ArrayList velA = velSL.getSection(secOrder[i]);
-            for (int j = 0; j < mes.size();j++) {
-                Measure current = (Measure) mes.get(j);
-                //Measure currentVel = (Measure) velA.get(j);
-                for (int k = 0; k < current.notes.size();k++) {
-                    t.add(EventCreator.createMidiEvent(MessageCreator.createShortMessage(current.notes.get(k).note, MusicGen.NOTE_ON, 30), time));
-                    t.add(EventCreator.createMidiEvent(MessageCreator.createShortMessage(current.notes.get(k).note, MusicGen.NOTE_OFF, 30), time+current.notes.get(k).duration-1));
-                    time+=current.notes.get(k).duration;
-                }
-            }
-        }
-        
-    }
+    /*
+    * Initial implementation of checkRepeat. This meathod is meant to make sure that the same section in the score is not repeated more than a certain number of times(maxRepeat in MusicGen)
+    * This was implemented recursivly, but due to the way markov chains work, occasionally it will recurse until memory failure. Used a maximum number of tries to prevent Memory Failure.
+    */
     
     public static int[] checkRepeat(Markov m, int sections, int currentTry, int maxTrys){
         int[] secOrder = m.makeSectionOrder(sections);
@@ -261,17 +196,10 @@ public class ProceduralMusic {
         return secOrder;
     }
     
-    public static Markov generateVelocityGraph(int lower, int upper, int step){
-        
-        int[] input = new int[((upper-lower)/step)];
-        
-        for(int i = 0; i < (upper-lower)/step; i++){
-            input[i] = (i*step)+lower;
-        }
-        
-        Markov vel = new Markov(input);
-        return vel;
-    }
+    /*
+    * This is the initial attempt to get rid of dissonent notes between scores. I do not know a whole lot about music theory, so my initial attempt is to try to just get rid of it, rather
+    * than resolving it. The current attempt works fairly alright, though minor seconds still occure occasionally.
+    */
     
     public static void removeDissonence(Score a, Score b,String scale){
         
@@ -294,34 +222,24 @@ public class ProceduralMusic {
                         Note nB = sB.notes.get(k);
                         
                         int dist = (nA.note%12)-(nB.note%12);
-                        
-                        //System.out.println("Distance: " + dist);
-                        
+                      
                         if(Math.abs(dist) == 1){
                             if(!(nA.note == 0 || nB.note==0)){
-                                //System.out.println("Dist: 1");
-                                //System.out.println("A:"+nA.note + " " + "B:"+nB.note);
                                 nA.note = (nA.note+(scaleList[findNoteInScale(nA.note,scaleList)+1] - scaleList[findNoteInScale(nA.note,scaleList)]));
                             }
                         }
                         else if(Math.abs(dist) == 2){
                             if(!(nA.note == 0 || nB.note==0)){
-                                //System.out.println("Dist: 2");
-                                //System.out.println("A:"+nA.note + " " + "B:"+nB.note);
                                 nA.note = (nA.note+(scaleList[findNoteInScale(nA.note,scaleList)+1] - scaleList[findNoteInScale(nA.note,scaleList)]));
                             }
                         }
                         else if(Math.abs(dist) == 7){
                             if(!(nA.note == 0 || nB.note==0)){
-                                //System.out.println("Dist: 7");
-                                //System.out.println("A:"+nA.note + " " + "B:"+nB.note);
                                 nA.note = (nA.note+(scaleList[findNoteInScale(nA.note,scaleList)+1] - scaleList[findNoteInScale(nA.note,scaleList)]));
                             }
                         }
                         else if(Math.abs(dist) == 11){
                             if(!(nA.note == 0 || nB.note==0)){
-                                //System.out.println("Dist: 11");
-                                //System.out.println("A:"+nA.note + " " + "B:"+nB.note);
                                 nA.note = (nA.note+(scaleList[findNoteInScale(nA.note,scaleList)+1] - scaleList[findNoteInScale(nA.note,scaleList)]));
                             }
                         }
@@ -334,6 +252,10 @@ public class ProceduralMusic {
         System.out.println("Done Dissonence" + "\n");
     }
     
+    /*
+    *  This method is used to find index of note in the array scale. This is used with the removeDissonence method.
+    */
+    
     public static int findNoteInScale(int note, int[] scale){
         int mod = note%12;
         for(int i = 0; i < scale.length;i++){
@@ -344,10 +266,18 @@ public class ProceduralMusic {
         return 0;
     }
     
+    /*
+    * not yet implemented
+    */
     public static void checkIfInKeyScale(Score a, Score b, String scale, String key){
         
     }
     
+    /*
+    * Half completed attempt to add Chords into the score a. Uses a base chance to decide if a note becomes a chord. then adds 2 more notes to that same time in the measure. The
+    * pitch of the two other notes is determined by another chance that determines where the root of the chord will be, whether bottom, mid or top of the chord. Again I
+    * don't know a whole lot about music theory, so i'll have to finish and improve upon this method.
+    */
     public static void addChord(Score a, String scale, String key, Random r){
         int[] scaleList = Scale.getScale(scale);
         for(int i = 0; i < a.counter;i++){
@@ -400,6 +330,9 @@ public class ProceduralMusic {
         }
     }
     
+    /*
+    * Removes notes with zero duration from Score a, not 100% sure if this is still necessary, but still have it in as a precaution.
+    */
     public static void removeZeroNotes(Score a){
         for(int i = 0; i < a.counter; i++){
             ArrayList mea = a.getSection(i);

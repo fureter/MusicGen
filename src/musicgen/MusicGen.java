@@ -22,6 +22,7 @@ import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Synthesizer;
 import javax.sound.midi.SysexMessage;
 import javax.sound.midi.Track;
+import musicgen.MidiGen.EventCreator;
 import musicgen.MidiGen.MessageCreator;
 
 
@@ -33,25 +34,28 @@ public class MusicGen {
 
     public static Sequencer seq;
     
+    //time data for piece. total length isn't too important currenty, it needs to be refactored.
     public static final long dt = 120;
     public static long time = 0;
     public static long length = 19200;
     
+    //saved midi status messages for note on and note off. used often enough that its nice to have here
     public static  final int NOTE_ON = 0x90;
     public static  final int NOTE_OFF = 0x80;
     
+    //creates the random number generator for the program, uses current time as seed, but could be changed for more control.
     public static long seed = System.currentTimeMillis();
     public static Random ran = new Random(seed);
     
+    //probablities for octave volitility, and note length volitility.
+    //higher lenvolt will produce more quarter notes, higher volitility will produce more octave shifts
     public static double volitility = .06;
-    public static double lenVolt = .5;
+    public static double lenVolt = .4;
     
+    //maximum number of repeating sequences. not exactly working.
     public static int MaxRepeat = 4;
     
-    public static int velLow = 30;
-    public static int velHigh = 40;
-    public static int velStep = 5;
-    
+    //used for keeping track of midi channels.
     public  static int track1channel = 0;
     public static int track2channel = 1;
 
@@ -59,6 +63,7 @@ public class MusicGen {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        //initializes static data for MessageCreator, and Scale class.
         MessageCreator.init();
         Scale.init();
         
@@ -67,117 +72,28 @@ public class MusicGen {
             seq.open();
             Sequence sq = new Sequence(Sequence.PPQ,120);
             
-            
+        //Sets up the two tracks that will be played, initializing them, and setting their instuments    
         
             Track t = sq.createTrack();
-            byte[] b = {(byte)0xF0, 0x7E, 0x7F, 0x09, 0x01, (byte)0xF7};
-            SysexMessage sm = new SysexMessage();
-            sm.setMessage(b, 6);
-            MidiEvent me = new MidiEvent(sm,(long)0);
-            t.add(me);
-            
-            
-            
-            MetaMessage mt = new MetaMessage();
-            byte[] bt = {5, 127, 0};
-            mt.setMessage(0x51 ,bt, 3);
-            me = new MidiEvent(mt,(long)0);
-            t.add(me);
-            
-            mt = new MetaMessage();
-            String TrackName = new String("Piano Melody");
-            mt.setMessage(0x03 ,TrackName.getBytes(), TrackName.length());
-            me = new MidiEvent(mt,(long)0);
-            t.add(me);
-            
-            //****  set omni on  ****
-            ShortMessage mm = new ShortMessage();
-            mm.setMessage(0xB0, 0x7D,0x00);
-            me = new MidiEvent(mm,(long)0);
-            t.add(me);
-            //****  set instrument to Piano  ****
-            mm = new ShortMessage();
-            mm.setMessage(0xC0, 40, 0x00);
-            me = new MidiEvent(mm,(long)0);
-            t.add(me);
-            //****  set poly on  ****
-            mm = new ShortMessage();
-            mm.setMessage(0xB0, 0x7F,0x00);
-            me = new MidiEvent(mm,(long)0);
-            t.add(me);
-            
-            
-            
+            EventCreator.initDefualt(t, 0);
+            EventCreator.setInstrument(t, 8, 0);
             
             Track t2 = sq.createTrack();
-            byte[] b2 = {(byte)0xF0, 0x7E, 0x7F, 0x09, 0x01, (byte)0xF7};
-            SysexMessage sm2 = new SysexMessage();
-            sm2.setMessage(b2, 6);
-            MidiEvent me2 = new MidiEvent(sm2,(long)0);
-            t2.add(me2);
+            EventCreator.initDefualt(t2, 1);
+            EventCreator.setInstrument(t2, 11, 1);
             
-            MetaMessage mt2 = new MetaMessage();
-            byte[] bt2 = {6, 127, 0};
-            mt2.setMessage(0x51+track2channel ,bt2, 3);
-            me2 = new MidiEvent(mt2,(long)0);
-            t2.add(me2);
-            
-            mt2 = new MetaMessage();
-            String TrackName2 = new String("Piano Harmony");
-            mt2.setMessage(0x03 ,TrackName2.getBytes(), TrackName2.length());
-            me2 = new MidiEvent(mt2,(long)0);
-            t2.add(me2);
-            
-            ShortMessage mm2 = new ShortMessage();
-            mm2.setMessage(0xB0+track2channel, 0x7D,0x00);
-            me2 = new MidiEvent(mm2,(long)0);
-            t2.add(me2);
-            
-            mm2 = new ShortMessage();
-            mm2.setMessage(0xB0+track2channel, 0x7F,0x00);
-            me2 = new MidiEvent(mm2,(long)0);
-            t2.add(me2);
-            
-            mm2 = new ShortMessage();
-            mm2.setMessage(0xC0+track2channel, 41, 0x00);
-            me2 = new MidiEvent(mm2,(long)0);
-            t2.add(me2);
-            
-            /*
-            for(long i = time; i < time+4*dt; i+=dt){
-                t.add(EventCreator.createMidiEvent(MessageCreator.createShortMessage("c5", NOTE_ON, 0x40), i));
-                t.add(EventCreator.createMidiEvent(MessageCreator.createShortMessage("c5", NOTE_OFF, 0x40), i+dt));
-            }
-            */
-            
-            //ProceduralMusic.createSimpleMusic(t, "c");
             
             System.out.println("Begining Markov");
-            
-            
+
             ProceduralMusic.markovSectionated(t,t2, "d#5","d#4", "Major", 300, 8, 4, 50, ran);
             
             System.out.println("Finished Markov");
-            
-                    
-            mt = new MetaMessage();
-            byte[] bet = {}; // empty array
-            mt.setMessage(0x2F,bet,0);
-            me = new MidiEvent(mt, length);
-            t.add(me);
-            
-            mt2 = new MetaMessage();
-            byte[] bet2 = {}; // empty array
-            mt2.setMessage(0x2F,bet,0);
-            me2 = new MidiEvent(mt2, length);
-            t2.add(me2);
-            
-            
+
             Synthesizer synth = MidiSystem.getSynthesizer();
             synth.open();
-            
+            //opening a file called MarkovMidi4 to write the midi data to
             File f = new File("MarkovMidi4.mid");
-		
+            //Writes the data to file f
             MidiSystem.write(sq,1,f);
             
         }catch(Exception e){
@@ -186,6 +102,7 @@ public class MusicGen {
         
         System.out.println("Done"); 
         
+        //immediatly opens and playins the midi file using MidiYodi in my directory, comment this out when you run it.
         try {
             System.out.println("opening midi file");
             Runtime.getRuntime().exec("C:\\Users\\FurEterinUmbrae\\Downloads\\MidiYodi-3.1.exe MarkovMidi4.mid");

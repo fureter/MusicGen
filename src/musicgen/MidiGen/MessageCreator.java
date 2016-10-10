@@ -16,6 +16,9 @@ public class MessageCreator {
     
     private static HashMap notes = new HashMap();
     
+    /*
+    * Creates the notes hashmap, that matches the string representation for the input pitch, to its midi integer value.
+    */
     public static void init(){
         notes.put("c0", 0);
         notes.put("c#0", 1);
@@ -148,6 +151,9 @@ public class MessageCreator {
         
     }
     
+    /*
+    * creates and returns a new short message for a note with the string note, status of the message, and the desired velocity.
+    */
     public static ShortMessage createShortMessage(String note, int status, int vel ){
         ShortMessage mm = new ShortMessage();
         int pitch = MessageCreator.getNote(note);
@@ -158,7 +164,9 @@ public class MessageCreator {
         }
         return mm;
     }
-    
+    /*
+    * creates and returns a new short message for a note with the integer note value, status of the message, and the desired velocity.
+    */
     public static ShortMessage createShortMessage(int note, int status, int vel ){
         ShortMessage mm = new ShortMessage();
         try{
@@ -169,6 +177,9 @@ public class MessageCreator {
         return mm;
     }
     
+    /*
+    *  returns the integer value of the input note using the hashmap notes.
+    */
     public static int getNote(String note){
         return (int)notes.get(note);
     }

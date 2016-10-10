@@ -76,7 +76,7 @@ public class Markov {
         return i;
     }
     
-        public int[] makeMusic1D(int iterations){
+    public int[] makeMusic1D(int iterations){
         int[] i = new int[iterations];
         if(ran.nextDouble() < MusicGen.volitility){
             if(ran.nextDouble() <=.5){
